@@ -27,8 +27,10 @@ class glowAnalytics {
 
   start() {
     if (!this.cookieName) { this.setCookie() }
-    this.sendTempData() // first data -- Real Time users
-    this.addListener()
+    if (this.beaconsData.clientID) {
+      this.sendTempData()
+      this.addListener()
+    }
   }
 
   sendTempData() {
@@ -63,18 +65,26 @@ class glowAnalytics {
     }
 
     return undefined;
+
+    //return document.cookie.match('(^|;)\\s*' + 'gh_id' + '\\s*=\\s*([^;]+)')?.pop() || undefined
   }
 
   addListener() {
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden' && this.beaconsData.clientID) {
-        this.sendData()
-      }
-      if (document.visibilityState === 'visible' && this.beaconsData.clientID) {
-        this.sendTempData()
-      }
-    })
+    const sendDataVisibilityHide = () => {
+      if (document.visibilityState === 'hidden') { this.sendData() }
+    }
+
+    const sendDataPageHide = () => {
+      this.sendData()
+    }
+
+    const sendTempDataVisible = () => {
+      if (document.visibilityState === 'visible') { this.sendTempData() }
+    }
+
+    document.addEventListener('visibilitychange', sendDataVisibilityHide)
+    document.addEventListener('visibilitychange', sendTempDataVisible)
+    window.addEventListener('pagehide', sendDataPageHide)
+    window.addEventListener('beforeunload', sendDataPageHide)
   }
 }
-
-new glowAnalytics('GH-H731104YNGQ')
