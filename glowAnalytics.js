@@ -88,3 +88,5 @@ class glowAnalytics {
     window.addEventListener('beforeunload', sendDataPageHide)
   }
 }
+
+const GAnalytics = new glowAnalytics('GH-3UF8P9EZF0P');
