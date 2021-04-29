@@ -38,7 +38,7 @@ class glowHub {
 
   initCookies() {
     console.log('Iniciamos cookies')
-    const glowCookies = new GlowCookies()
+    const glowCookies = new GlowCookies(this.clientID)
 
     glowCookies.start(this.services.cookies.lang, {
       style: this.services.cookies.style,
@@ -130,7 +130,7 @@ class LanguagesGC {
 }
 
 class GlowCookies {
-  constructor() {
+  constructor(clientID) {
     // Cookies banner
     this.banner = undefined
     // Config
@@ -140,6 +140,8 @@ class GlowCookies {
     this.PreBanner = undefined
     this.Cookies = undefined
     this.DOMbanner = undefined
+    // Client id
+    this.clientID = clientID
   }
 
   render() {
@@ -229,17 +231,30 @@ class GlowCookies {
     this.DOMbanner.classList.add('glowCookies__show')
   }
 
+  sendData(action) {
+    let url
+
+    if (action) {
+      url = `${BASE_URL}/cookies/new/${this.clientID}/true`
+    } else {
+      url = `${BASE_URL}/cookies/new/${this.clientID}/false`
+    }
+    navigator.sendBeacon(url)
+  }
+
   acceptCookies() {
     localStorage.setItem("GlowCookies", "1")
     this.openManageCookies()
     this.activateTracking()
     this.addCustomScript()
+    this.sendData(true)
   }
 
   rejectCookies() {
-    localStorage.setItem("GlowCookies", "0");
-    this.openManageCookies();
-    this.disableTracking();
+    localStorage.setItem("GlowCookies", "0")
+    this.openManageCookies()
+    this.disableTracking()
+    this.sendData(false)
   }
 
   activateTracking() {
