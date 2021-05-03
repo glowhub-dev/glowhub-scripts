@@ -1,8 +1,9 @@
-const BASE_URL = 'https://glowhub-api.herokuapp.com'
+const BASE_URL = 'https://api.glowhub.dev'
+const DEBUG_MODE = true
 
 // GlowHub base
 // ===================================================
-class glowHub {
+class GlowHub {
   constructor() {
     this.baseURL = BASE_URL
     this.clientID = undefined
@@ -24,6 +25,9 @@ class glowHub {
       .then(data => {
         this.services.cookies = data.cookies
         this.services.analytics = data.analytics
+        this.services.feedback = data.feedback
+
+        DEBUG_MODE && console.log('ACC INFO: ', data)
 
         this.start()
       })
@@ -33,32 +37,52 @@ class glowHub {
   start() {
     if (this.services.cookies) this.initCookies()
     if (!this.services.cookies && this.services.analytics) this.initAnalytics()
-    if (this.services.feedback) this.initFeedback()
   }
 
   initCookies() {
-    console.log('Iniciamos cookies')
-    const glowCookies = new GlowCookies(this.clientID)
+    DEBUG_MODE && console.log('INICIO COOKIES')
 
+    const glowCookies = new GlowCookies(this.clientID)
     glowCookies.start(this.services.cookies.lang, {
-      style: this.services.cookies.style,
-      analytics: 'G-FH87DE17XF',
-      policyLink: 'https://link-to-your-policy.com'
+      style: this.services.cookies.bannerStyle,
+      analytics: this.services.cookies.analytics,
+      facebookPixel: this.services.cookies.facebookPixel,
+      hideAfterClick: this.services.cookies.hideAfterClick,
+      border: this.services.cookies.border,
+      position: this.services.cookies.position,
+      policyLink: this.services.cookies.policyLink,
+      customScript: this.services.cookies.customScript,
+      bannerDescription: this.services.cookies.description,
+      bannerLinkText: this.services.cookies.linkText,
+      bannerBackground: this.services.cookies.background,
+      bannerColor: this.services.cookies.color,
+      bannerHeading: this.services.cookies.heading,
+      acceptBtnText: this.services.cookies.acceptBtnText,
+      acceptBtnColor: this.services.cookies.acceptBtnColor,
+      acceptBtnBackground: this.services.cookies.acceptBtnBackground,
+      rejectBtnText: this.services.cookies.rejectBtnText,
+      rejectBtnBackground: this.services.cookies.rejectBtnBackground,
+      rejectBtnColor: this.services.cookies.rejectBtnColor,
+      manageColor: this.services.cookies.color,
+      manageBackground: this.services.cookies.background,
+      manageText: 'Cookies'
     })
   }
 
   initAnalytics() {
-    if (this.services.analytics) {
-      console.log('Iniciamos analytics')
-      const GAnalytics = new glowAnalytics(this.clientID, this.services.analytics.privacy)
-    }
+    DEBUG_MODE && console.log('INICIO ANALYTICS')
+    const GAnalytics = new glowAnalytics(this.clientID, this.services.analytics.privacy)
   }
 
   initFeedback() {
-    console.log('Iniciamos initFeedback')
+    DEBUG_MODE && console.log('INICIO FEEDBACK')
+    this.services.feedback && new glowFeedback(this.clientID)
   }
 }
-const glowHubScript = new glowHub()
+const glowHubScript = new GlowHub()
+// ===================================================
+// ===================================================
+
 
 // Glow Cookies
 // ===================================================
@@ -131,16 +155,12 @@ class LanguagesGC {
 
 class GlowCookies {
   constructor(clientID) {
-    // Cookies banner
     this.banner = undefined
-    // Config
     this.config = undefined
     this.tracking = undefined
-    // DOM ELEMENTS
     this.PreBanner = undefined
     this.Cookies = undefined
     this.DOMbanner = undefined
-    // Client id
     this.clientID = clientID
   }
 
@@ -232,14 +252,7 @@ class GlowCookies {
   }
 
   sendData(action) {
-    let url
-
-    if (action) {
-      url = `${BASE_URL}/cookies/new/${this.clientID}/true`
-    } else {
-      url = `${BASE_URL}/cookies/new/${this.clientID}/false`
-    }
-    navigator.sendBeacon(url)
+    navigator.sendBeacon(`${BASE_URL}/cookies/new/${this.clientID}/${action ? 'true' : 'false'}`)
   }
 
   acceptCookies() {
@@ -259,10 +272,9 @@ class GlowCookies {
 
   activateTracking() {
     // GLOW ANALYTICS
-    if (glowHubScript) {
-      glowHubScript.initAnalytics()
-    }
+    glowHubScript && glowHubScript.initAnalytics()
     // ===================
+
     // Google Analytics Tracking
     if (this.tracking.AnalyticsCode) {
       let Analytics = document.createElement('script');
@@ -423,18 +435,20 @@ class GlowCookies {
     this.render()
   }
 }
+// ===================================================
+
 
 // Glow Analytics
 // ===================================================
 class glowAnalytics {
   constructor(clientID, privacy, event = 'pageView') {
     this.baseURL = `${BASE_URL}/analytics/new/view`
-    this.cookieName = this.getGACookie('gh_id') || undefined
+    this.clientIdLocalStorage = localStorage.getItem("GlowAnalytics") || undefined
     this.privacy = privacy
 
     this.beaconsData = {
       clientID: clientID,
-      user_id: this.cookieName || null,
+      user_id: this.clientIdLocalStorage || null,
       viewTempID: Math.random().toString(36).substring(2),
       webEvent: event,
       title: document.title,
@@ -455,7 +469,7 @@ class glowAnalytics {
   }
 
   start() {
-    if (!this.cookieName) { this.setCookie() }
+    !this.clientIdLocalStorage && this.setLocalStorage()
     if (this.beaconsData.clientID) {
       this.sendTempData()
       this.addListener()
@@ -472,46 +486,18 @@ class glowAnalytics {
     navigator.sendBeacon(this.baseURL, JSON.stringify(this.beaconsData));
   }
 
-  setCookie() {
+  setLocalStorage() {
     if (!this.privacy) {
-      let expires = (new Date(Date.now() + 86400 * 500000)).toUTCString();
       let randomUser = Math.random().toString(36).substring(2);
-      document.cookie = `gh_id=ga_${randomUser}; expires=${expires};`;
+      localStorage.setItem("GlowAnalytics", `ga_${randomUser}`)
+      console.log('Instalo localstorage')
     }
-  }
-
-  getGACookie(cname) {
-    let name = cname + "=";
-    let decodedCookie = decodeURIComponent(document.cookie);
-    let ca = decodedCookie.split(';');
-
-    for (var i = 0; i < ca.length; i++) {
-      var c = ca[i];
-      while (c.charAt(0) == ' ') {
-        c = c.substring(1);
-      }
-      if (c.indexOf(name) == 0) {
-        return c.substring(name.length, c.length);
-      }
-    }
-
-    return undefined;
-
-    //return document.cookie.match('(^|;)\\s*' + 'gh_id' + '\\s*=\\s*([^;]+)')?.pop() || undefined
   }
 
   addListener() {
-    const sendDataVisibilityHide = () => {
-      if (document.visibilityState === 'hidden') { this.sendData() }
-    }
-
-    const sendDataPageHide = () => {
-      this.sendData()
-    }
-
-    const sendTempDataVisible = () => {
-      if (document.visibilityState === 'visible') { this.sendTempData() }
-    }
+    const sendDataVisibilityHide = () => { document.visibilityState === 'hidden' && this.sendData() }
+    const sendDataPageHide = () => { this.sendData() }
+    const sendTempDataVisible = () => { document.visibilityState === 'visible' && this.sendTempData() }
 
     document.addEventListener('visibilitychange', sendDataVisibilityHide)
     document.addEventListener('visibilitychange', sendTempDataVisible)
@@ -519,3 +505,54 @@ class glowAnalytics {
     window.addEventListener('beforeunload', sendDataPageHide)
   }
 }
+// ===================================================
+
+
+// Glow Feedback
+// ===================================================
+class glowFeedback {
+  constructor(clientID) {
+    this.popup = undefined
+    this.clientID = clientID
+
+    this.start()
+  }
+
+  start() {
+    this.addCss()
+    this.createElements()
+    this.showFeedback()
+  }
+
+  addCss() {
+
+  }
+
+  createElements() {
+    this.popup = document.createElement("div");
+    this.popup.innerHTML = `<div>
+                              <button id="glowFeedGood">Good</button>
+                              <button id="glowFeedBad">Bad</button>
+                            </div>`;
+    this.popup.style.display = "none";
+    document.body.appendChild(this.popup);
+
+    // Add listeners
+    document.getElementById('glowFeedGood').addEventListener('click', () => this.sendData(true))
+    document.getElementById('glowFeedBad').addEventListener('click', () => this.sendData(false))
+  }
+
+  showFeedback() {
+    this.popup.style.display = 'block'
+  }
+
+  hideFeedback() {
+    this.popup.style.display = 'none'
+  }
+
+  sendData(action) {
+    navigator.sendBeacon(`${BASE_URL}/feedback/new/${this.clientID}/${action ? 'true' : 'false'}`)
+    this.hideFeedback()
+  }
+}
+// ===================================================
