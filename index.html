@@ -11,6 +11,14 @@
   <script src="glowHub.js"></script>
   <script> 
     glowHubScript.init('GH-JNIALL0KOBA'); 
+
+    window.addEventListener('cookies_accepted', () => {
+      console.log('Cookies aceptadas')
+    });
+
+    window.addEventListener('cookies_rejected', () => {
+      console.log('Cookies denegadas')
+    });
   </script>
 
   <button onclick="glowHubScript.initFeedback()">Show feedback</button>

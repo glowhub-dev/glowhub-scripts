@@ -69,14 +69,14 @@ class GlowHub {
     })
   }
 
-  initAnalytics() {
+  initAnalytics(cookies) {
     DEBUG_MODE && console.log('INICIO ANALYTICS')
-    const GAnalytics = new glowAnalytics(this.clientID, this.services.analytics.privacy)
+    const GAnalytics = new glowAnalytics(this.clientID, this.services.analytics.privacy, cookies)
   }
 
   initFeedback() {
     DEBUG_MODE && console.log('INICIO FEEDBACK')
-    this.services.feedback && new glowFeedback(this.clientID)
+    this.services.feedback && new glowFeedback(this.clientID, this.services.feedback)
   }
 }
 const glowHubScript = new GlowHub()
@@ -162,6 +162,8 @@ class GlowCookies {
     this.Cookies = undefined
     this.DOMbanner = undefined
     this.clientID = clientID
+    this.acceptEvent = new CustomEvent('cookies_accepted')
+    this.rejectEvent = new CustomEvent('cookies_rejected')
   }
 
   render() {
@@ -235,6 +237,7 @@ class GlowCookies {
         break;
       case "0":
         this.openManageCookies();
+        this.disableTracking();
         break;
       default:
         this.openSelector();
@@ -271,8 +274,11 @@ class GlowCookies {
   }
 
   activateTracking() {
+    // Custom event
+    window.dispatchEvent(this.acceptEvent)
+
     // GLOW ANALYTICS
-    glowHubScript && glowHubScript.initAnalytics()
+    glowHubScript && glowHubScript.initAnalytics(false)
     // ===================
 
     // Google Analytics Tracking
@@ -286,6 +292,7 @@ class GlowCookies {
                               gtag('js', new Date());
                               gtag('config', '${this.tracking.AnalyticsCode}');`;
       document.head.appendChild(AnalyticsData);
+      DEBUG_MODE && console.log('G ANALYTICS ACTIVATED', this.tracking.AnalyticsCode)
     }
 
     // Facebook pixel tracking code
@@ -310,6 +317,7 @@ class GlowCookies {
       FacebookPixel.setAttribute('style', `display:none`);
       FacebookPixel.setAttribute('src', `https://www.facebook.com/tr?id=${this.tracking.FacebookPixelCode}&ev=PageView&noscript=1`);
       document.head.appendChild(FacebookPixel);
+      DEBUG_MODE && console.log('FACEBOOK ACTIVATED', this.tracking.FacebookPixelCode)
     }
 
     // Hotjar Tracking
@@ -330,6 +338,13 @@ class GlowCookies {
   }
 
   disableTracking() {
+    // Custom event
+    window.dispatchEvent(this.rejectEvent)
+
+    // GLOW ANALYTICS
+    glowHubScript && glowHubScript.initAnalytics(true)
+    // ===================
+
     // Google Analytics Tracking ('client_storage': 'none')
     if (this.tracking.AnalyticsCode) {
       let Analytics = document.createElement('script');
@@ -441,10 +456,11 @@ class GlowCookies {
 // Glow Analytics
 // ===================================================
 class glowAnalytics {
-  constructor(clientID, privacy, event = 'pageView') {
+  constructor(clientID, privacy, cookies = false, event = 'pageView') {
     this.baseURL = `${BASE_URL}/analytics/new/view`
     this.clientIdLocalStorage = localStorage.getItem("GlowAnalytics") || undefined
     this.privacy = privacy
+    this.withoutcookies = cookies
 
     this.beaconsData = {
       clientID: clientID,
@@ -487,7 +503,7 @@ class glowAnalytics {
   }
 
   setLocalStorage() {
-    if (!this.privacy) {
+    if (!this.privacy && !this.withoutcookies) {
       let randomUser = Math.random().toString(36).substring(2);
       localStorage.setItem("GlowAnalytics", `ga_${randomUser}`)
       console.log('Instalo localstorage')
@@ -511,31 +527,42 @@ class glowAnalytics {
 // Glow Feedback
 // ===================================================
 class glowFeedback {
-  constructor(clientID) {
+  constructor(clientID, config) {
     this.popup = undefined
     this.clientID = clientID
+    this.config = config
 
     this.start()
   }
 
   start() {
-    this.addCss()
     this.createElements()
     this.showFeedback()
   }
 
-  addCss() {
-
-  }
-
   createElements() {
     this.popup = document.createElement("div");
-    this.popup.innerHTML = `<div>
-                              <button id="glowFeedGood">Good</button>
-                              <button id="glowFeedBad">Bad</button>
-                            </div>`;
-    this.popup.style.display = "none";
-    document.body.appendChild(this.popup);
+    this.popup.innerHTML = `<div 
+                                id="glowFeedback-banner" 
+                                class="glowCookies__banner glowCookies__banner__${this.config.style} glowCookies__none glowCookies__right"
+                                style="background-color: ${this.config.background};"
+                              >
+                                <h3 style="color: ${this.config.color};">${this.config.heading}</h3>
+                                <p style="color: ${this.config.color};">
+                                    ${this.config.description} 
+                                </p>
+                                <div class="btn__section">
+                                    <button type="button" id="glowFeedGood" class="btn__accept accept__btn__styles" style="color: ${this.config.goodBtnColor}; background-color: ${this.config.goodBtnBackground};">
+                                        ${this.config.goodBtn}
+                                    </button>
+                                    <button type="button" id="glowFeedBad" class="btn__settings settings__btn__styles" style="color: ${this.config.badBtnColor}; background-color: ${this.config.badBtnBackground};">
+                                        ${this.config.badBtn}
+                                    </button>
+                                </div>
+                              </div>
+                            `;
+    document.body.appendChild(this.popup)
+    this.DOMpopup = document.getElementById('glowFeedback-banner')
 
     // Add listeners
     document.getElementById('glowFeedGood').addEventListener('click', () => this.sendData(true))
@@ -543,16 +570,18 @@ class glowFeedback {
   }
 
   showFeedback() {
-    this.popup.style.display = 'block'
+    DEBUG_MODE && console.log('SHOW FEEDBACK')
+    this.DOMpopup.classList.add('glowCookies__show')
   }
 
   hideFeedback() {
-    this.popup.style.display = 'none'
+    this.DOMpopup.classList.remove('glowCookies__show')
   }
 
   sendData(action) {
     navigator.sendBeacon(`${BASE_URL}/feedback/new/${this.clientID}/${action ? 'true' : 'false'}`)
     this.hideFeedback()
+    console.log('data sent')
   }
 }
 // ===================================================
