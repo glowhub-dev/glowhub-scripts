@@ -53,7 +53,7 @@ class GlowHub {
       policyLink: this.services.cookies.policyLink,
       customScript: this.services.cookies.customScript,
       bannerDescription: this.services.cookies.description,
-      bannerLinkText: this.services.cookies.linkText,
+      bannerLinkText: this.services.cookies.policyLinkText,
       bannerBackground: this.services.cookies.background,
       bannerColor: this.services.cookies.color,
       bannerHeading: this.services.cookies.heading,
