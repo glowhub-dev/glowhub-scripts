@@ -1,4 +1,4 @@
-const BASE_URL = 'https://api.glowhub.dev'
+const BASE_URL = 'https://glowhub.herokuapp.com'
 const DEBUG_MODE = true
 
 // GlowHub base
